@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>이상기체 입자 부피 비교 시뮬레이터</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #10233d;
+      --muted: #64748b;
+      --panel: #ffffff;
+      --line: #d9e2ef;
+      --accent: #1667c8;
+      --accent-dark: #0d4f9e;
+      --warm: #f59e0b;
+      --surface: #edf4fb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background: linear-gradient(135deg, #eaf3ff, #f8fbff 46%, #eef5fa);
+      color: var(--ink);
+      font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 32px auto 48px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 3vw, 2.15rem);
+      letter-spacing: -0.04em;
+    }
+
+    .intro {
+      margin: 9px 0 24px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .shell {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: 0 18px 50px rgb(30 72 120 / 12%);
+    }
+
+    .sim-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    .status::before {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #94a3b8;
+      content: "";
+    }
+
+    .status.running::before { background: #22c55e; box-shadow: 0 0 0 4px rgb(34 197 94 / 16%); }
+    .status.paused::before { background: var(--warm); box-shadow: 0 0 0 4px rgb(245 158 11 / 16%); }
+
+    .clock {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.9rem;
+    }
+
+    .canvas-wrap {
+      padding: 20px;
+      background: #fbfdff;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 2px solid #1e3f67;
+      border-radius: 6px;
+      background: #f4f9ff;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      padding: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .control-group {
+      min-width: 0;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .group-title {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: #3c526d;
+      letter-spacing: 0.02em;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 82px minmax(80px, 1fr) 70px;
+      align-items: center;
+      gap: 10px;
+      min-height: 35px;
+      font-size: 0.9rem;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    output {
+      min-width: 0;
+      color: var(--accent-dark);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .model-choice button[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: #e8f2ff;
+      color: var(--accent-dark);
+    }
+
+    .model-hint {
+      min-height: 2.7em;
+      margin: 11px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .duration-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .duration-row input {
+      width: 100%;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid #bfcee0;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      color-scheme: light;
+      font: inherit;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .duration-row input::-webkit-inner-spin-button,
+    .duration-row input::-webkit-outer-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+
+    button {
+      min-height: 38px;
+      padding: 8px 13px;
+      border: 1px solid #bfcee0;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); background: #f4f9ff; }
+    button:focus-visible, input:focus-visible { outline: 3px solid rgb(22 103 200 / 32%); outline-offset: 2px; }
+    button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    button.primary:hover:not(:disabled) { border-color: var(--accent-dark); background: var(--accent-dark); color: #fff; }
+    button.warning { border-color: #efbd61; background: #fffbeb; color: #9a5b00; }
+    button:disabled { cursor: not-allowed; opacity: 0.5; }
+
+    .note {
+      margin: 18px 2px 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.6;
+    }
+
+    .note strong { color: #40536b; }
+
+    .theory-panel {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+      gap: 16px;
+      padding: 20px;
+      border-top: 1px solid var(--line);
+      background: #fafdff;
+    }
+
+    .theory-card {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .theory-card h2 {
+      margin: 0 0 5px;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .theory-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .theory-values {
+      margin: 14px 0 0;
+    }
+
+    .theory-values > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 0;
+      border-top: 1px solid #edf1f6;
+    }
+
+    .theory-values dt { color: var(--muted); font-size: 0.84rem; }
+    .theory-values dd { margin: 0; color: #164f8a; font-weight: 800; font-size: 0.88rem; text-align: right; font-variant-numeric: tabular-nums; }
+    .formula { margin-top: 12px !important; color: #496078 !important; }
+
+    #distribution-chart {
+      margin-top: 12px;
+      border: 1px solid #cbd9e8;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .chart-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 9px !important;
+    }
+
+    .chart-key span::before {
+      display: inline-block;
+      width: 10px;
+      height: 2px;
+      margin: 0 5px 3px 0;
+      vertical-align: middle;
+      background: var(--accent);
+      content: "";
+    }
+
+    .chart-key span:nth-child(2)::before { height: 8px; background: #df8516; }
+
+    @media (max-width: 720px) {
+      main { width: min(100% - 20px, 1120px); margin-top: 20px; }
+      .canvas-wrap, .controls { padding: 12px; }
+      .controls { grid-template-columns: 1fr; }
+      .theory-panel { grid-template-columns: 1fr; padding: 12px; }
+      .range-row { grid-template-columns: 74px minmax(70px, 1fr) 62px; gap: 7px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>이상기체 입자 부피 비교 시뮬레이터</h1>
+    <p class="intro">이상기체 모델을 유지한 상태에서 입자 부피를 무시하거나 유한한 크기를 적용해 확산 과정을 비교합니다. 입자는 처음 왼쪽 공간에만 배치되며, 칸막이를 제거하면 전체 용기로 이동합니다.</p>
+
+    <section class="shell" aria-label="기체 입자 시뮬레이션">
+      <div class="sim-header">
+        <div id="status" class="status" aria-live="polite">준비됨</div>
+        <div id="clock" class="clock">경과 시간 0.00 s</div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="simulation" width="1000" height="520" aria-label="중앙 칸막이가 있는 직사각형 용기 안의 기체 입자"></canvas>
+      </div>
+
+      <div class="controls">
+        <section class="control-group" aria-label="입자 부피 설정">
+          <span class="group-title">이상기체의 입자 부피 설정</span>
+          <div class="button-row model-choice" role="group" aria-label="입자 크기 설정">
+            <button id="point-particle" type="button" aria-pressed="true">부피 무시 (점입자)</button>
+            <button id="finite-particle" type="button" aria-pressed="false">부피 고려 (유한 크기)</button>
+          </div>
+          <p id="particle-volume-hint" class="model-hint">현재 설정: 입자 부피 무시 — 입자 간 힘 없이 탄성충돌만 적용합니다.</p>
+        </section>
+
+        <section class="control-group" aria-label="초기 조건 설정">
+          <span class="group-title">초기 조건</span>
+          <label class="range-row" for="count">
+            <span>입자 수</span>
+            <input id="count" type="range" min="10" max="250" value="80" step="10">
+            <output id="count-value" for="count">80개</output>
+          </label>
+          <label class="range-row" for="speed">
+            <span>초기 속력</span>
+            <input id="speed" type="range" min="30" max="300" value="130" step="5">
+            <output id="speed-value" for="speed">130 px/s</output>
+          </label>
+        </section>
+
+        <section class="control-group" aria-label="시뮬레이션 조작">
+          <span class="group-title">시뮬레이션 조작</span>
+          <div class="button-row">
+            <button id="start" class="primary" type="button">시작 / 재개</button>
+            <button id="pause" type="button" disabled>일시정지</button>
+            <button id="reset" type="button">초기화</button>
+            <button id="remove-divider" class="warning" type="button">칸막이 제거</button>
+          </div>
+        </section>
+
+        <section class="control-group" aria-label="실행 속도와 지정 시간 실행">
+          <span class="group-title">실행 속도</span>
+          <div class="button-row model-choice" role="group" aria-label="실행 속도 선택">
+            <button id="speed-1" type="button" aria-pressed="true">1×</button>
+            <button id="speed-4" type="button" aria-pressed="false">4×</button>
+            <button id="speed-16" type="button" aria-pressed="false">16×</button>
+            <button id="speed-64" type="button" aria-pressed="false">64×</button>
+          </div>
+          <label class="model-hint" for="run-seconds">지정 시간 실행 (가상 시간, 초)</label>
+          <div class="duration-row">
+            <input id="run-seconds" type="number" min="0.5" max="600" step="0.5" value="30" inputmode="decimal">
+            <button id="run-duration" type="button">실행 후 정지</button>
+          </div>
+          <p id="duration-hint" class="model-hint">입력한 가상 시간만큼 계산한 뒤 자동으로 일시정지합니다.</p>
+        </section>
+      </div>
+
+      <section class="theory-panel" aria-label="이상기체 이론값">
+        <section class="theory-card" aria-labelledby="theory-title">
+          <h2 id="theory-title">점입자 이상기체 기준 이론값</h2>
+          <div id="ideal-analysis">
+            <p id="theory-state">칸막이 제거 후 10초부터 0.5초마다 좌측 입자 수를 기록합니다. 이론값은 점입자 기준입니다.</p>
+            <dl class="theory-values" aria-live="polite">
+              <div><dt>왼쪽 입자 수</dt><dd id="left-count">80개</dd></div>
+              <div><dt>오른쪽 입자 수</dt><dd id="right-count">0개</dd></div>
+              <div><dt>미시상태 수 (Ω = C(N, Nₗ))</dt><dd id="microstates">1</dd></div>
+              <div><dt>볼츠만 엔트로피 (S = k<sub>B</sub> ln Ω)</dt><dd id="entropy">0 J/K</dd></div>
+              <div><dt>점입자 기준 분포 확률</dt><dd id="state-probability">—</dd></div>
+              <div><dt>표본 수</dt><dd id="sample-count">0개</dd></div>
+              <div><dt>이론과 관측의 일치도</dt><dd id="distribution-agreement">기록 대기</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="theory-card" aria-labelledby="chart-title">
+          <h2 id="chart-title">좌측 입자 수: 이론과 관측</h2>
+          <p>점선은 점입자 이상기체의 이론 분포이고, 막대는 시뮬레이션에서 기록한 분포입니다. 일치도는 두 분포가 얼마나 겹치는지 나타내며 100%에 가까울수록 서로 비슷합니다.</p>
+          <canvas id="distribution-chart" width="620" height="300" role="img" aria-label="좌측 입자 수에 따른 이상기체 이론 확률과 관측 상대도수 그래프"></canvas>
+          <p class="chart-key"><span>이론 확률 (고정)</span><span>관측 상대도수</span></p>
+        </section>
+      </section>
+    </section>
+
+    <p class="note"><strong>현재 단계의 범위:</strong> 물리 모델은 하나의 이상기체 시뮬레이터로 고정되어 있습니다. 두 설정 모두 입자 간 인력·반발력을 적용하지 않으며, 충돌은 탄성충돌로 처리합니다. 차이는 입자의 유한한 크기와 겹침 방지 여부입니다. 엄밀한 이상기체는 입자 부피를 무시하므로, 유한 크기 설정은 입자 간 인력이 없는 유한 크기 입자 기체와의 비교 조건입니다. 이론값은 두 설정 모두 점입자 이상기체를 기준으로 계산합니다.</p>
+  </main>
+
+  <script>
+    "use strict";
+
+    // The single physical model is ideal-gas-like: no intermolecular forces
+    // and elastic collisions. The setting below optionally adds a finite
+    // collision radius and excluded-volume behavior.
+    const CONFIG = Object.freeze({
+      width: 1000,
+      height: 520,
+      dividerX: 500,
+      drawRadius: 4,
+      finiteParticleRadius: 8,
+      maximumStep: 1 / 12,
+      // Point-particle mode: only treat practically coincident centers as a collision.
+      // This is intentionally independent of the visible drawing radius.
+      collisionDetectionDistance: 0,
+      colors: ["#1373d1", "#168a9f", "#4767d4", "#a34ba3", "#dd6b20"]
+    });
+
+    class Particle {
+      constructor(x, y, vx, vy, color, radius = 0) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.radius = radius;
+      }
+    }
+
+    class IdealGasModel {
+      constructor() {
+        this.id = "ideal";
+        this.label = "이상기체";
+        this.available = true;
+        this.useFiniteParticleVolume = false;
+        this.particleRadius = 0;
+      }
+
+      setParticleVolume(enabled) {
+        this.useFiniteParticleVolume = Boolean(enabled);
+        this.particleRadius = this.useFiniteParticleVolume ? CONFIG.finiteParticleRadius : 0;
+      }
+
+      get description() {
+        return this.useFiniteParticleVolume
+          ? `입자 반지름 ${this.particleRadius}px, 입자 간 힘 없음, 비겹침 탄성충돌`
+          : "입자 부피 무시, 입자 간 힘 없음, 탄성충돌";
+      }
+
+      step(world, deltaSeconds) {
+        // Small substeps keep fast particles from passing through one another
+        // between collision checks. No intermolecular force is calculated.
+        const substeps = Math.max(1, Math.ceil(deltaSeconds / (1 / 120)));
+        const dt = deltaSeconds / substeps;
+        for (let step = 0; step < substeps; step += 1) {
+          world.particles.forEach((particle) => world.moveParticle(particle, dt));
+          if (this.useFiniteParticleVolume) {
+            this.resolveFiniteSizeCollisions(world);
+          } else {
+            this.resolveElasticCollisions(world);
+          }
+        }
+      }
+
+      resolveElasticCollisions(world) {
+        const { particles, config } = world;
+        const thresholdSquared = config.collisionDetectionDistance ** 2;
+
+        for (let first = 0; first < particles.length; first += 1) {
+          for (let second = first + 1; second < particles.length; second += 1) {
+            const a = particles[first];
+            const b = particles[second];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared > thresholdSquared) continue;
+
+            const distance = Math.sqrt(distanceSquared) || 1;
+            const normalX = distanceSquared === 0 ? 1 : dx / distance;
+            const normalY = distanceSquared === 0 ? 0 : dy / distance;
+            const approachingSpeed = (a.vx - b.vx) * normalX + (a.vy - b.vy) * normalY;
+            if (approachingSpeed <= 0) continue;
+
+            // Equal-mass elastic collision: exchange only normal velocity
+            // components. Tangential motion and total kinetic energy remain.
+            a.vx -= approachingSpeed * normalX;
+            a.vy -= approachingSpeed * normalY;
+            b.vx += approachingSpeed * normalX;
+            b.vy += approachingSpeed * normalY;
+          }
+        }
+      }
+
+      resolveFiniteSizeCollisions(world) {
+        const { particles } = world;
+        for (let first = 0; first < particles.length; first += 1) {
+          for (let second = first + 1; second < particles.length; second += 1) {
+            const a = particles[first];
+            const b = particles[second];
+            let dx = b.x - a.x;
+            let dy = b.y - a.y;
+            let distance = Math.hypot(dx, dy);
+            const contactDistance = a.radius + b.radius;
+            if (distance >= contactDistance) continue;
+
+            // Separate overlapping finite particles, then apply an equal-mass
+            // elastic impulse only when their relative motion is approaching.
+            if (distance === 0) {
+              dx = 1;
+              dy = 0;
+              distance = 1;
+            }
+            const normalX = dx / distance;
+            const normalY = dy / distance;
+            const separation = (contactDistance - distance) / 2;
+            a.x -= normalX * separation;
+            a.y -= normalY * separation;
+            b.x += normalX * separation;
+            b.y += normalY * separation;
+            world.resolveOuterWallCollision(a);
+            world.resolveOuterWallCollision(b);
+            world.resolveDividerCollision(a);
+            world.resolveDividerCollision(b);
+
+            const approachingSpeed = (a.vx - b.vx) * normalX + (a.vy - b.vy) * normalY;
+            if (approachingSpeed <= 0) continue;
+            a.vx -= approachingSpeed * normalX;
+            a.vy -= approachingSpeed * normalY;
+            b.vx += approachingSpeed * normalX;
+            b.vy += approachingSpeed * normalY;
+          }
+        }
+      }
+    }
+
+    class IdealGasTheory {
+      constructor() {
+        this.boltzmannConstant = 1.380649e-23;
+        this.lanczosCoefficients = [
+          0.9999999999998099,
+          676.5203681218851,
+          -1259.1392167224028,
+          771.3234287776531,
+          -176.6150291621406,
+          12.507343278686905,
+          -0.13857109526572012,
+          9.9843695780195716e-6,
+          1.5056327351493116e-7
+        ];
+      }
+
+      logGamma(value) {
+        if (value < 0.5) {
+          return Math.log(Math.PI) - Math.log(Math.sin(Math.PI * value)) - this.logGamma(1 - value);
+        }
+        const z = value - 1;
+        let series = this.lanczosCoefficients[0];
+        for (let index = 1; index < this.lanczosCoefficients.length; index += 1) {
+          series += this.lanczosCoefficients[index] / (z + index);
+        }
+        const shifted = z + 7.5;
+        return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(shifted) - shifted + Math.log(series);
+      }
+
+      logBinomial(total, selected) {
+        return this.logGamma(total + 1) - this.logGamma(selected + 1) - this.logGamma(total - selected + 1);
+      }
+
+      calculate(total, left) {
+        const logMicrostates = this.logBinomial(total, left);
+        return {
+          logMicrostates,
+          entropy: this.boltzmannConstant * logMicrostates,
+          probability: Math.exp(logMicrostates - total * Math.LN2)
+        };
+      }
+
+      distribution(total) {
+        return Array.from({ length: total + 1 }, (_, left) => ({
+          left,
+          probability: this.calculate(total, left).probability
+        }));
+      }
+    }
+
+    class DistributionSampler {
+      constructor({ burnInSeconds = 5, intervalSeconds = 0.5 } = {}) {
+        this.burnInSeconds = burnInSeconds;
+        this.intervalSeconds = intervalSeconds;
+        this.reset(0);
+      }
+
+      reset(totalParticles) {
+        this.counts = Array(totalParticles + 1).fill(0);
+        this.samples = 0;
+        this.dividerRemovedAt = null;
+        this.nextSampleAt = null;
+      }
+
+      begin(elapsedSeconds, totalParticles) {
+        this.reset(totalParticles);
+        this.dividerRemovedAt = elapsedSeconds;
+        this.nextSampleAt = elapsedSeconds + this.burnInSeconds;
+      }
+
+      update(world) {
+        if (this.dividerRemovedAt === null || this.nextSampleAt === null) return;
+        while (world.elapsedSeconds + 1e-9 >= this.nextSampleAt) {
+          const { left } = world.countParticlesBySide();
+          this.counts[left] += 1;
+          this.samples += 1;
+          this.nextSampleAt += this.intervalSeconds;
+        }
+      }
+
+      phase(world) {
+        if (this.dividerRemovedAt === null) return "waiting";
+        if (world.elapsedSeconds < this.dividerRemovedAt + this.burnInSeconds) return "burn-in";
+        return "collecting";
+      }
+
+      observedDistribution() {
+        return this.counts.map((count, left) => ({
+          left,
+          probability: this.samples === 0 ? 0 : count / this.samples
+        }));
+      }
+
+      distributionAgreement(theory) {
+        if (this.samples === 0) return null;
+        const theoretical = theory.distribution(this.counts.length - 1);
+        const observed = this.observedDistribution();
+
+        // Add the overlap of each theoretical and observed probability.
+        // 100% means the two distributions are identical.
+        const agreement = theoretical.reduce(
+          (sum, point, index) => sum + Math.min(point.probability, observed[index].probability),
+          0
+        );
+        return Math.max(0, Math.min(1, agreement));
+      }
+    }
+
+    class TheoryChartRenderer {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.context = canvas.getContext("2d");
+      }
+
+      draw(distribution, observedDistribution) {
+        const ctx = this.context;
+        const { width, height } = this.canvas;
+        const padding = { top: 28, right: 18, bottom: 42, left: 56 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+        // The vertical scale is determined solely by the theoretical curve.
+        // Observations may change the bars, but never rescale or move theory.
+        const peak = Math.max(...distribution.map((point) => point.probability), 0.01) * 1.12;
+        const total = distribution.length - 1;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = "12px system-ui, sans-serif";
+
+        ctx.strokeStyle = "#d7e2ed";
+        ctx.lineWidth = 1;
+        for (let fraction = 0; fraction <= 1; fraction += 0.25) {
+          const y = padding.top + chartHeight * (1 - fraction);
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(width - padding.right, y);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = "#5c7088";
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+
+        const xFor = (left) => padding.left + (left / Math.max(total, 1)) * chartWidth;
+        const yFor = (probability) => padding.top + chartHeight * (1 - probability / peak);
+
+        const barWidth = Math.max(1, chartWidth / (total + 1) * 0.82);
+        ctx.fillStyle = "rgb(223 133 22 / 48%)";
+        observedDistribution.forEach((point) => {
+          if (point.probability === 0) return;
+          const x = xFor(point.left) - barWidth / 2;
+          const y = yFor(Math.min(point.probability, peak));
+          ctx.fillRect(x, y, barWidth, height - padding.bottom - y);
+        });
+
+        ctx.strokeStyle = "#42566d";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        distribution.forEach((point, index) => {
+          const x = xFor(point.left);
+          const y = yFor(point.probability);
+          if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#43566e";
+        ctx.textAlign = "right";
+        ctx.fillText("0", padding.left - 8, height - padding.bottom + 4);
+        ctx.fillText(this.formatProbability(peak), padding.left - 8, padding.top + 4);
+        ctx.textAlign = "center";
+        [0, Math.round(total / 2), total].forEach((value) => {
+          ctx.fillText(String(value), xFor(value), height - padding.bottom + 19);
+        });
+        ctx.textAlign = "left";
+        ctx.fillText("P(Nₗ)", 7, padding.top - 8);
+        ctx.textAlign = "right";
+        ctx.fillText("Nₗ (왼쪽 입자 수)", width - padding.right, height - 10);
+      }
+
+      formatProbability(value) {
+        return value >= 0.01 ? value.toFixed(2) : value.toExponential(1);
+      }
+
+    }
+
+    class TheoryPanel {
+      constructor(view, theory, sampler, chartRenderer) {
+        this.view = view;
+        this.theory = theory;
+        this.sampler = sampler;
+        this.chartRenderer = chartRenderer;
+      }
+
+      update(world) {
+        const { left, right } = world.countParticlesBySide();
+        const result = this.theory.calculate(world.particles.length, left);
+        this.view.leftCount.textContent = `${left}개`;
+        this.view.rightCount.textContent = `${right}개`;
+        this.view.microstates.textContent = this.formatMultiplicity(result.logMicrostates);
+        this.view.entropy.textContent = `${this.formatScientific(result.entropy, 3)} J/K`;
+        this.view.stateProbability.textContent = this.formatProbability(result.probability);
+        this.view.sampleCount.textContent = `${this.sampler.samples}개`;
+        this.updateSamplingStatus(world);
+        this.updateDistributionAgreement();
+        this.chartRenderer.draw(
+          this.theory.distribution(world.particles.length),
+          this.sampler.observedDistribution()
+        );
+      }
+
+      updateSamplingStatus(world) {
+        const phase = this.sampler.phase(world);
+        if (phase === "waiting") {
+          this.view.theoryState.textContent = "칸막이 제거를 기다리는 중입니다.";
+        } else if (phase === "burn-in") {
+          const startedAt = this.sampler.dividerRemovedAt + this.sampler.burnInSeconds;
+          const remaining = Math.max(0, startedAt - world.elapsedSeconds);
+          this.view.theoryState.textContent = `안정화 중 — ${remaining.toFixed(1)}초 뒤부터 0.5초 간격으로 기록합니다.`;
+        } else {
+          this.view.theoryState.textContent = `기록 중 — 0.5초마다 좌측 입자 수를 누적합니다 (안정화 ${this.sampler.burnInSeconds}초 완료).`;
+        }
+      }
+
+      updateDistributionAgreement() {
+        const agreement = this.sampler.distributionAgreement(this.theory);
+        this.view.distributionAgreement.textContent = agreement === null
+          ? "기록 대기"
+          : `${(agreement * 100).toFixed(1)}%`;
+      }
+
+      formatMultiplicity(logValue) {
+        if (Math.abs(logValue) < 1e-10) return "1";
+        const exponent = Math.floor(logValue / Math.LN10);
+        const mantissa = Math.exp(logValue - exponent * Math.LN10);
+        return `${mantissa.toPrecision(4)} × 10^${exponent}`;
+      }
+
+      formatScientific(value, digits) {
+        if (value === 0) return "0";
+        const [mantissa, exponent] = value.toExponential(digits - 1).split("e");
+        return `${mantissa} × 10^${Number(exponent)}`;
+      }
+
+      formatProbability(value) {
+        return value >= 0.001 ? value.toFixed(4) : value.toExponential(3);
+      }
+    }
+
+    class SimulationWorld {
+      constructor(config) {
+        this.config = config;
+        this.particles = [];
+        this.dividerActive = true;
+        this.elapsedSeconds = 0;
+        this.model = new IdealGasModel();
+      }
+
+      setParticleVolume(enabled) {
+        this.model.setParticleVolume(enabled);
+      }
+
+      reset({ count, speed }) {
+        this.particles = this.createLeftParticles(count, speed);
+        this.dividerActive = true;
+        this.elapsedSeconds = 0;
+      }
+
+      removeDivider() {
+        this.dividerActive = false;
+      }
+
+      countParticlesBySide() {
+        const left = this.particles.filter((particle) => particle.x < this.config.dividerX).length;
+        return { left, right: this.particles.length - left };
+      }
+
+      createLeftParticles(count, speed) {
+        const particles = [];
+        const padding = 12;
+        const radius = this.model.particleRadius || 0;
+        const minimumX = padding + radius;
+        const maximumX = this.config.dividerX - padding - radius;
+        const minimumY = padding + radius;
+        const maximumY = this.config.height - padding - radius;
+
+        for (let index = 0; index < count; index += 1) {
+          const angle = Math.random() * Math.PI * 2;
+          let x;
+          let y;
+          let attempts = 0;
+          let positionIsFree = false;
+          do {
+            x = minimumX + Math.random() * (maximumX - minimumX);
+            y = minimumY + Math.random() * (maximumY - minimumY);
+            attempts += 1;
+            positionIsFree = radius === 0 || !particles.some(
+              (particle) => Math.hypot(particle.x - x, particle.y - y) < particle.radius + radius
+            );
+          } while (
+            !positionIsFree &&
+            attempts < 5000 &&
+            radius > 0
+          );
+          if (!positionIsFree) throw new Error("현재 입자 수와 반지름으로는 겹치지 않는 초기 배치를 만들 수 없습니다.");
+          const color = this.config.colors[index % this.config.colors.length];
+          particles.push(new Particle(
+            x,
+            y,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            color,
+            radius
+          ));
+        }
+        return particles;
+      }
+
+      step(deltaSeconds) {
+        // Cap a delayed frame so a tab returning from the background cannot
+        // move particles through an entire wall in one update.
+        const dt = Math.min(deltaSeconds, this.config.maximumStep);
+        this.model.step(this, dt);
+        this.elapsedSeconds += dt;
+      }
+
+      moveParticle(particle, dt) {
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        this.resolveOuterWallCollision(particle);
+        this.resolveDividerCollision(particle);
+      }
+
+      resolveOuterWallCollision(particle) {
+        const { width, height } = this.config;
+        const radius = particle.radius;
+
+        if (particle.x < radius) {
+          particle.x = 2 * radius - particle.x;
+          particle.vx = Math.abs(particle.vx);
+        } else if (particle.x > width - radius) {
+          particle.x = 2 * (width - radius) - particle.x;
+          particle.vx = -Math.abs(particle.vx);
+        }
+
+        if (particle.y < radius) {
+          particle.y = 2 * radius - particle.y;
+          particle.vy = Math.abs(particle.vy);
+        } else if (particle.y > height - radius) {
+          particle.y = 2 * (height - radius) - particle.y;
+          particle.vy = -Math.abs(particle.vy);
+        }
+      }
+
+      resolveDividerCollision(particle) {
+        const boundary = this.config.dividerX - particle.radius;
+        if (!this.dividerActive || particle.x < boundary) return;
+
+        // All particles start on the left. The divider is an ideal, zero-width
+        // reflecting boundary until it is removed.
+        particle.x = 2 * boundary - particle.x;
+        particle.vx = -Math.abs(particle.vx);
+      }
+    }
+
+    class CanvasRenderer {
+      constructor(canvas, config) {
+        this.canvas = canvas;
+        this.context = canvas.getContext("2d");
+        this.config = config;
+      }
+
+      draw(world) {
+        const ctx = this.context;
+        const { width, height, dividerX, drawRadius } = this.config;
+        ctx.clearRect(0, 0, width, height);
+
+        this.drawSubtleGrid(ctx, width, height);
+        this.drawLeftRegionHint(ctx, dividerX, height, world.dividerActive);
+
+        for (const particle of world.particles) {
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.radius || drawRadius, 0, Math.PI * 2);
+          ctx.fillStyle = particle.color;
+          ctx.fill();
+        }
+
+        if (world.dividerActive) this.drawDivider(ctx, dividerX, height);
+      }
+
+      drawSubtleGrid(ctx, width, height) {
+        ctx.save();
+        ctx.strokeStyle = "rgb(92 134 179 / 10%)";
+        ctx.lineWidth = 1;
+        for (let x = 50; x < width; x += 50) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = 50; y < height; y += 50) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      drawLeftRegionHint(ctx, dividerX, height, dividerActive) {
+        if (!dividerActive) return;
+        ctx.save();
+        ctx.fillStyle = "rgb(22 103 200 / 4%)";
+        ctx.fillRect(0, 0, dividerX, height);
+        ctx.restore();
+      }
+
+      drawDivider(ctx, dividerX, height) {
+        ctx.save();
+        ctx.setLineDash([9, 7]);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#e08a14";
+        ctx.beginPath();
+        ctx.moveTo(dividerX, 0);
+        ctx.lineTo(dividerX, height);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class SimulationController {
+      constructor(world, renderer, sampler, theoryPanel, view) {
+        this.world = world;
+        this.renderer = renderer;
+        this.sampler = sampler;
+        this.theoryPanel = theoryPanel;
+        this.view = view;
+        this.running = false;
+        this.lastFrameTime = null;
+        this.speedMultiplier = 1;
+        this.durationTargetTime = null;
+        this.completedDuration = null;
+        this.frame = this.frame.bind(this);
+      }
+
+      start() {
+        if (this.running) return;
+        this.running = true;
+        this.lastFrameTime = null;
+        requestAnimationFrame(this.frame);
+        this.syncView();
+      }
+
+      pause() {
+        this.running = false;
+        this.lastFrameTime = null;
+        this.durationTargetTime = null;
+        this.syncView();
+      }
+
+      setSpeed(multiplier) {
+        this.speedMultiplier = multiplier;
+        this.syncView();
+      }
+
+      runFor(seconds) {
+        if (!this.world.model.available || !Number.isFinite(seconds) || seconds <= 0) return;
+        const wasRunning = this.running;
+        this.running = true;
+        this.lastFrameTime = null;
+        this.durationTargetTime = this.world.elapsedSeconds + seconds;
+        this.completedDuration = null;
+        if (!wasRunning) requestAnimationFrame(this.frame);
+        this.syncView();
+      }
+
+      reset(settings) {
+        this.world.reset(settings);
+        this.sampler.reset(this.world.particles.length);
+        this.completedDuration = null;
+        this.pause();
+        this.renderer.draw(this.world);
+        this.syncView();
+      }
+
+      removeDivider() {
+        this.world.removeDivider();
+        this.sampler.begin(this.world.elapsedSeconds, this.world.particles.length);
+        this.completedDuration = null;
+        this.renderer.draw(this.world);
+        this.syncView();
+      }
+
+      selectParticleVolume(enabled, settings) {
+        this.pause();
+        this.world.setParticleVolume(enabled);
+        this.world.reset(settings);
+        this.sampler.reset(this.world.particles.length);
+        this.completedDuration = null;
+        this.renderer.draw(this.world);
+        this.syncView();
+      }
+
+      frame(timestamp) {
+        if (!this.running) return;
+
+        if (this.durationTargetTime !== null) {
+          const remaining = this.durationTargetTime - this.world.elapsedSeconds;
+          this.advanceWorld(Math.min(remaining, 0.5));
+          if (this.world.elapsedSeconds + 1e-8 >= this.durationTargetTime) {
+            this.completedDuration = this.durationTargetTime;
+            this.durationTargetTime = null;
+            this.running = false;
+          }
+        } else if (this.lastFrameTime !== null) {
+          const realSeconds = Math.min((timestamp - this.lastFrameTime) / 1000, 0.1);
+          this.advanceWorld(realSeconds * this.speedMultiplier);
+        }
+        this.lastFrameTime = timestamp;
+        this.renderer.draw(this.world);
+        this.syncView();
+        if (this.running) requestAnimationFrame(this.frame);
+      }
+
+      advanceWorld(deltaSeconds) {
+        let remaining = Math.max(0, deltaSeconds);
+        const epsilon = 1e-8;
+        while (remaining > epsilon) {
+          const untilSample = this.sampler.nextSampleAt === null
+            ? Infinity
+            : Math.max(0, this.sampler.nextSampleAt - this.world.elapsedSeconds);
+          if (untilSample <= epsilon) {
+            this.sampler.update(this.world);
+            continue;
+          }
+          const step = Math.min(remaining, this.world.config.maximumStep, untilSample);
+          this.world.step(step);
+          remaining -= step;
+          this.sampler.update(this.world);
+        }
+      }
+
+      syncView() {
+        this.sampler.update(this.world);
+        const state = this.running ? "running" : (this.world.elapsedSeconds > 0 ? "paused" : "ready");
+        this.view.status.className = `status ${state === "ready" ? "" : state}`;
+        this.view.status.textContent = this.durationTargetTime !== null
+          ? "지정 시간 실행 중"
+          : state === "running" ? `실행 중 (${this.speedMultiplier}×)` : state === "paused" ? "일시정지" : "준비됨";
+        this.view.clock.textContent = `경과 시간 ${this.world.elapsedSeconds.toFixed(2)} s`;
+        this.view.start.disabled = !this.world.model.available;
+        this.view.pause.disabled = !this.world.model.available || !this.running;
+        this.view.removeDivider.disabled = !this.world.model.available || !this.world.dividerActive;
+        this.view.removeDivider.textContent = this.world.dividerActive ? "칸막이 제거" : "칸막이 제거됨";
+        this.view.pointParticle.setAttribute("aria-pressed", String(!this.world.model.useFiniteParticleVolume));
+        this.view.finiteParticle.setAttribute("aria-pressed", String(this.world.model.useFiniteParticleVolume));
+        this.view.particleVolumeHint.textContent = this.world.model.useFiniteParticleVolume
+          ? `현재 설정: 입자 부피 고려 — 반지름 ${this.world.model.particleRadius}px의 원형 입자가 겹치지 않으며, 접촉 시 탄성충돌합니다. 입자 간 힘은 없습니다.`
+          : "현재 설정: 입자 부피 무시 — 입자를 점입자로 취급하며, 입자 간 힘 없이 탄성충돌을 처리합니다.";
+        [this.view.speed1, this.view.speed4, this.view.speed16, this.view.speed64].forEach((button) => {
+          const multiplier = Number(button.dataset.multiplier);
+          button.setAttribute("aria-pressed", String(this.speedMultiplier === multiplier));
+          button.disabled = !this.world.model.available;
+        });
+        this.view.runDuration.disabled = !this.world.model.available;
+        this.view.runSeconds.disabled = !this.world.model.available;
+        this.view.durationHint.textContent = this.durationTargetTime !== null
+          ? `지정 시간 실행 중 — ${(this.durationTargetTime - this.world.elapsedSeconds).toFixed(1)}초 남음`
+          : this.completedDuration !== null
+            ? "지정한 가상 시간만큼 실행한 뒤 일시정지했습니다."
+            : "입력한 가상 시간만큼 계산한 뒤 자동으로 일시정지합니다.";
+        this.theoryPanel.update(this.world);
+      }
+    }
+
+    const elements = {
+      canvas: document.querySelector("#simulation"),
+      count: document.querySelector("#count"),
+      speed: document.querySelector("#speed"),
+      countValue: document.querySelector("#count-value"),
+      speedValue: document.querySelector("#speed-value"),
+      start: document.querySelector("#start"),
+      pause: document.querySelector("#pause"),
+      reset: document.querySelector("#reset"),
+      removeDivider: document.querySelector("#remove-divider"),
+      speed1: document.querySelector("#speed-1"),
+      speed4: document.querySelector("#speed-4"),
+      speed16: document.querySelector("#speed-16"),
+      speed64: document.querySelector("#speed-64"),
+      runSeconds: document.querySelector("#run-seconds"),
+      runDuration: document.querySelector("#run-duration"),
+      durationHint: document.querySelector("#duration-hint"),
+      pointParticle: document.querySelector("#point-particle"),
+      finiteParticle: document.querySelector("#finite-particle"),
+      particleVolumeHint: document.querySelector("#particle-volume-hint"),
+      leftCount: document.querySelector("#left-count"),
+      rightCount: document.querySelector("#right-count"),
+      microstates: document.querySelector("#microstates"),
+      entropy: document.querySelector("#entropy"),
+      stateProbability: document.querySelector("#state-probability"),
+      sampleCount: document.querySelector("#sample-count"),
+      distributionAgreement: document.querySelector("#distribution-agreement"),
+      theoryState: document.querySelector("#theory-state"),
+      distributionChart: document.querySelector("#distribution-chart"),
+      idealAnalysis: document.querySelector("#ideal-analysis"),
+      status: document.querySelector("#status"),
+      clock: document.querySelector("#clock")
+    };
+
+    const settings = () => ({
+      count: Number(elements.count.value),
+      speed: Number(elements.speed.value)
+    });
+
+    const updateValueLabels = () => {
+      elements.countValue.textContent = `${elements.count.value}개`;
+      elements.speedValue.textContent = `${elements.speed.value} px/s`;
+    };
+
+    const world = new SimulationWorld(CONFIG);
+    const renderer = new CanvasRenderer(elements.canvas, CONFIG);
+    const theory = new IdealGasTheory();
+    const sampler = new DistributionSampler({ burnInSeconds: 5, intervalSeconds: 0.5 });
+    const theoryPanel = new TheoryPanel(elements, theory, sampler, new TheoryChartRenderer(elements.distributionChart));
+    const controller = new SimulationController(world, renderer, sampler, theoryPanel, elements);
+
+    elements.start.addEventListener("click", () => controller.start());
+    elements.pause.addEventListener("click", () => controller.pause());
+    elements.reset.addEventListener("click", () => controller.reset(settings()));
+    elements.removeDivider.addEventListener("click", () => controller.removeDivider());
+    [elements.speed1, elements.speed4, elements.speed16, elements.speed64].forEach((button) => {
+      button.addEventListener("click", () => controller.setSpeed(Number(button.dataset.multiplier)));
+    });
+    elements.runDuration.addEventListener("click", () => controller.runFor(Number(elements.runSeconds.value)));
+    elements.pointParticle.addEventListener("click", () => controller.selectParticleVolume(false, settings()));
+    elements.finiteParticle.addEventListener("click", () => controller.selectParticleVolume(true, settings()));
+
+    // Changing a starting condition or particle-size setting creates a fresh,
+    // paused trial with the same initial-condition controls.
+    [elements.count, elements.speed].forEach((input) => {
+      input.addEventListener("input", updateValueLabels);
+      input.addEventListener("change", () => controller.reset(settings()));
+    });
+
+    elements.speed1.dataset.multiplier = "1";
+    elements.speed4.dataset.multiplier = "4";
+    elements.speed16.dataset.multiplier = "16";
+    elements.speed64.dataset.multiplier = "64";
+
+    updateValueLabels();
+    controller.reset(settings());
+  </script>
+</body>
+</html>
